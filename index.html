@@ -35,12 +35,13 @@
     display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;}
   #clock{color:#444;font-weight:bold;}
 
-  /* 広告：右端の縦バナー（160x600）。画面が狭い時は隠す */
-  #ad-side{position:fixed;top:8px;right:10px;width:160px;height:600px;z-index:5;display:none;}
-  #ad-side iframe{border:0;width:160px;height:600px;display:block;}
-  @media (min-width:1200px){
+  /* 広告：PCは右端の縦160x600、スマホ/タブレットはタイトル下に320x100 */
+  #ad-side{position:fixed;top:8px;right:10px;width:160px;height:600px;z-index:5;overflow:hidden;display:none;}
+  #ad-mobile{text-align:center;margin:8px 0;}
+  @media (min-width:1100px){
     #ad-side{display:block;}
-    body{padding-right:190px;}
+    #ad-mobile{display:none;}
+    body{padding-right:184px;}
   }
   .scene-fallback svg{display:block;}
 
@@ -115,10 +116,12 @@
     <span id="clock">現在 22:38</span>
   </div>
 
+  <div id="ad-mobile"><!-- admax --><script src="https://adm.shinobi.jp/s/c976240bb1401bcd000bebe7d37b75ba"></script><!-- admax --></div>
+
   <div id="thread"></div>
   <div id="interaction"></div>
 
-  <div id="ad-side"></div>
+  <div id="ad-side"><!-- admax --><script src="https://adm.shinobi.jp/s/e0681dcc6118c3e584a69763d22a1368"></script><!-- admax --></div>
 
   <form id="post-form" autocomplete="off">
     <div class="row">
@@ -481,17 +484,8 @@ function delayFor(){
 }
 function clearPending(){ if(pending){clearTimeout(pending.timer); pending=null;} }
 
-/* ===== 広告（忍者AdMax・右端の縦160x600）===============================
-   document.write 系タグの暴発でページが壊れないよう iframe(srcdoc) で隔離。 */
-const AD_SRC="https://adm.shinobi.jp/s/e0681dcc6118c3e584a69763d22a1368";
-function adIframe(w,h){
-  const f=document.createElement('iframe');
-  f.scrolling='no'; f.loading='lazy';
-  f.style.cssText='border:0;width:'+w+'px;height:'+h+'px;display:block;';
-  f.srcdoc='<!doctype html><meta charset="utf-8"><style>html,body{margin:0;padding:0;overflow:hidden;text-align:center}</style><!-- admax --><script src="'+AD_SRC+'"><\/script><!-- admax -->';
-  return f;
-}
-function mountAd(el,w,h){ if(el){ el.innerHTML=''; el.appendChild(adIframe(w,h)); } }
+/* 広告は静的スロット（#ad-side / #ad-mobile）にHTMLで直接埋め込み。
+   実ページのリファラで配信させるため iframe 隔離はしない。 */
 
 function playPhase(){
   const phase=SCRIPT[phaseIdx]; if(!phase) return;
@@ -566,9 +560,6 @@ document.getElementById('gate-go').addEventListener('click',()=>{
   playPhase();
 });
 document.getElementById('gate-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gate-go').click();});
-
-/* 右端の縦バナーを描画（画面が狭い時はCSSで非表示） */
-mountAd(document.getElementById('ad-side'),160,600);
 </script>
 </body>
 </html>
