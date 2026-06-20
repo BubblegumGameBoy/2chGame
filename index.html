@@ -78,6 +78,8 @@
   #post-form #mail-in{width:110px;}
   #post-form textarea{width:100%;height:46px;border:1px solid #999;padding:4px 6px;font-family:inherit;font-size:13px;resize:vertical;}
   #post-form textarea::placeholder{color:#b3a98f;font-style:italic;opacity:1;}
+  /* 自分の番＝コメント欄を薄い黄色でハイライト（ユーザー投稿と同色） */
+  #post-form.awaiting textarea{background:#fffbe2;border-color:#e0c97a;}
   #post-form .submit{margin-top:5px;padding:5px 18px;font-size:13px;font-family:inherit;background:#f3f3f3;border:1px solid #888;border-radius:3px;cursor:pointer;}
   #post-form .submit:hover{background:#fff;}
   #post-form .hint{font-size:11px;color:#777;}
@@ -89,6 +91,15 @@
   #gate input{padding:6px 8px;border:1px solid #888;font-size:14px;width:60%;margin-top:8px;}
   #gate button{display:block;margin:14px auto 0;padding:8px 26px;font-size:14px;background:#222;color:#fff;border:none;border-radius:3px;cursor:pointer;}
   #gate .small{font-size:11px;color:#777;margin-top:10px;}
+
+  /* スマホ最適化（狭い画面） */
+  @media (max-width:520px){
+    body{font-size:15px;padding-bottom:152px;}
+    #post-form .hint{display:none;}
+    #post-form #name-in{width:44%;}
+    #post-form #mail-in{width:30%;}
+    .scene{width:100%;}
+  }
 </style>
 </head>
 <body>
@@ -484,7 +495,7 @@ function mountAd(el,w,h){ if(el){ el.innerHTML=''; el.appendChild(adIframe(w,h))
 
 function playPhase(){
   const phase=SCRIPT[phaseIdx]; if(!phase) return;
-  awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
+  awaitingPost=false; $form.classList.remove('awaiting'); $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
   let i=0;
   const typing=document.createElement('div'); typing.className='typing';
   typing.innerHTML='……誰かが書き込んでいる……';
@@ -514,11 +525,11 @@ function openGate(phase){
       const e=document.createElement('div'); e.className='endnote';
       e.textContent=phase.endNote.replace('{TRIP}', OP.trip); $inter.appendChild(e);
     }
-    $body.placeholder=DEFAULT_PH; scrollBottom();
+    $form.classList.remove('awaiting'); $body.placeholder=DEFAULT_PH; scrollBottom();
     return;
   }
-  // 自分の番：心の声を書き込み欄のプレースホルダにそのまま薄く出す（強調なし）
-  awaitingPost=true;
+  // 自分の番：コメント欄を薄い黄色でハイライトし、心の声をプレースホルダに出す
+  awaitingPost=true; $form.classList.add('awaiting');
   $body.placeholder = phase.think ? phase.think.replace(/[（）]/g,'') : DEFAULT_PH;
   $body.focus(); scrollBottom();
 }
@@ -531,7 +542,7 @@ function submitPost(text){
   lastLen=[...text].length; lastSlow=false;
   $body.value='';
   if(awaitingPost){
-    awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
+    awaitingPost=false; $form.classList.remove('awaiting'); $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
     phaseIdx++; setTimeout(playPhase,PACE.afterPost);
   }
 }
