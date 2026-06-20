@@ -12,7 +12,7 @@
    固有名も架空（ささなき駅／藤倉トンネル／日向野）。
   ・住人は1人ずつ別人の声で書き分け（口調をそろえてAI感を出さない）。
   ・コテハンを設定して住人の1人を演じる。入力はコメント欄一択。
-  ・テンポ：読む時間ベースの待ち＋タップ送り＋時間スキップ＋時計。
+  ・テンポ：読む時間ベースの待ち＋タップ送り＋時計。心の声は入力欄に薄く表示。
   ・一本道。SCRIPT配列をデータ駆動で差替え可能。
   ============================================================
 -->
@@ -62,11 +62,9 @@
   .scene{display:block;width:320px;max-width:100%;height:auto;border:1px solid #333;border-radius:2px;}
   .scene-cap{font-size:11px;color:#888;margin-top:2px;}
 
-  .timeskip{text-align:center;color:#999;font-size:12px;margin:14px 0;letter-spacing:1px;}
   #interaction{margin:14px 0 0 22px;}
   .typing{color:#999;font-size:12px;font-style:italic;margin:6px 0 0 22px;}
   .typing .tap{color:#bbb;font-style:normal;cursor:pointer;margin-left:4px;}
-  .innervoice{color:#9a8f78;font-style:italic;font-size:13px;margin:10px 0 0;}
   .endnote{color:#555;font-size:13px;margin:18px 0;border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;
     padding:14px 6px;background:#eaeaea;}
 
@@ -81,8 +79,6 @@
   #post-form .submit{margin-top:5px;padding:5px 18px;font-size:13px;font-family:inherit;background:#f3f3f3;border:1px solid #888;border-radius:3px;cursor:pointer;}
   #post-form .submit:hover{background:#fff;}
   #post-form .hint{font-size:11px;color:#777;}
-  #post-form.awaiting{background:#e7ddc4;border-top-color:#c00000;}
-  #post-form .hint.turn{color:#c00000;font-weight:bold;}
 
   #gate{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:50;display:flex;align-items:center;justify-content:center;}
   #gate .panel{background:#efefef;border:1px solid #000;max-width:480px;width:90%;padding:22px 24px;text-align:center;}
@@ -118,7 +114,6 @@
       <label>名前：<input type="text" id="name-in"></label>
       <label>E-mail（省略可）：<input type="text" id="mail-in" placeholder="sage"></label>
       <span class="hint">※E-mail欄に sage と入れると名前が青く（下げ進行）なります</span>
-      <span class="hint turn" id="turn-hint"></span>
     </div>
     <textarea id="body-in" placeholder="本文を書いて「書き込む」"></textarea>
     <button type="submit" class="submit">書き込む</button>
@@ -129,9 +124,9 @@
       <h1>― オカルト超常現象板 ―</h1>
       <p>2004年1月8日 22時すぎ。<br>あなたは深夜の「実況してくスレ」を開いた。</p>
       <p>このスレで使う<strong>コテハン（名前）</strong>を入れて、<br>住人の一人として参加しよう。</p>
-      <input type="text" id="gate-name" maxlength="24" placeholder="例：おれ">
+      <input type="text" id="gate-name" maxlength="24" value="うしろの名無しさん">
       <button id="gate-go">スレに参加する</button>
-      <div class="small">空欄なら「うしろの名無しさん」として参加します。</div>
+      <div class="small">そのままなら名無しとして参加。コテハンを使いたい人は書き換えてください。</div>
     </div>
   </div>
 
@@ -141,7 +136,7 @@
    速い人はタップ/クリック/スペース・Enterで即送り。                     */
 const PACE = {
   readBase:  1600, msPerChar: 85, minDelay: 2600, maxDelay: 9000,
-  slowMul: 1.6, skipMin: 7, afterPost: 800,
+  slowMul: 1.6, afterPost: 800,
 };
 const NONAME = "うしろの名無しさん";
 const OP = {name:"ましろ", trip:"◆mShiro7Ksc", op:true, id:"x9Km/.Ai0"};
@@ -219,7 +214,7 @@ const O = (no,date,body,extra={})=>({no,...OP,mail:"",date,body,...extra});
 const SCRIPT = [
   /* ---- Ph0 前座（怖いけど怖くない雑談） ---- */
   { posts:[
-      N(1,"2004/01/08 22:38","身のまわりでちょっと変なこと起きたら、ここで実況してくスレ。\n怖い話ってほどじゃない、なんか変だな〜くらいのやつ大歓迎。\nsage進行でまったりどうぞ。"),
+      N(1,"2004/01/08 22:38","身のまわりでちょっと変なことが起きたら、ここで実況していくスレです。\n怖い話というほどでもない、なんか変だな、くらいのやつ歓迎！"),
       N(3,"2004/01/08 22:41","じゃ俺から。さっきから家の時計、全部11時11分で止まってる。電池替えたばっかなのに"),
       N(5,"2004/01/08 22:43","電池の入れ方ミスってるだけでは？ｗ",{mail:"sage"}),
       N(7,"2004/01/08 22:45",">>3 全部って何個あんのｗ"),
@@ -406,7 +401,7 @@ const SCRIPT = [
 ];
 
 /* ========================================================================= */
-let phaseIdx=0, lastNo=0, lastMin=null, lastLen=0, lastSlow=false;
+let phaseIdx=0, lastNo=0, lastLen=0, lastSlow=false;
 let awaitingPost=false, lastDate="2004/01/08 22:38", pending=null;
 let player={id:randId()};
 const DEFAULT_PH="本文を書いて「書き込む」";
@@ -417,7 +412,6 @@ const $count =document.getElementById('res-count');
 const $clock =document.getElementById('clock');
 const $body  =document.getElementById('body-in');
 const $form  =document.getElementById('post-form');
-const $turn  =document.getElementById('turn-hint');
 function scrollBottom(){window.scrollTo(0,document.body.scrollHeight);}
 
 function randId(){
@@ -436,18 +430,7 @@ function renderImg(img){
     return `<div class="scene-wrap">${IMAGES[img].svg}<div class="scene-cap">［${esc(IMAGES[img].cap)}］</div></div>`;
   return `<div class="res-img">［画像：${esc(img)}］</div>`; // 後方互換：プレースホルダ枠
 }
-function parseMin(d){const m=d.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)/);return m?((+m[2])*31+(+m[3]))*1440+(+m[4])*60+(+m[5]):null;}
 function hhmm(d){const m=d.match(/(\d{1,2}):(\d{2})/);return m?m[1].padStart(2,'0')+':'+m[2]:'';}
-
-function timeskip(curDate){
-  if(lastMin==null) return;
-  const cur=parseMin(curDate);
-  if(cur!=null && cur-lastMin>=PACE.skipMin){
-    const d=document.createElement('div'); d.className='timeskip';
-    d.textContent='── 約'+(cur-lastMin)+'分後 ──';
-    $thread.appendChild(d);
-  }
-}
 
 function renderRes(p,isMe){
   const n=Math.max(p.no||lastNo+1, lastNo+1); lastNo=n;
@@ -485,16 +468,15 @@ function insertInlineAd(){
 
 function playPhase(){
   const phase=SCRIPT[phaseIdx]; if(!phase) return;
-  awaitingPost=false; setTurn(false); $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
+  awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
   let i=0;
   const typing=document.createElement('div'); typing.className='typing';
   typing.innerHTML='……誰かが書き込んでいる……<span class="tap">▼ タップ／スペースで次へ</span>';
   const reveal=()=>{
     clearPending(); typing.remove();
     const p=phase.posts[i];
-    timeskip(p.date); renderRes(p,false);
+    renderRes(p,false);
     lastLen=[...(p.body||'')].length; lastSlow=!!p.slow;
-    const cur=parseMin(p.date); if(cur!=null) lastMin=cur;
     i++; schedule();
   };
   const schedule=()=>{
@@ -517,22 +499,13 @@ function openGate(phase){
       const e=document.createElement('div'); e.className='endnote';
       e.textContent=phase.endNote; $inter.appendChild(e);
     }
-    setTurn(false); $body.placeholder=DEFAULT_PH; scrollBottom();
+    $body.placeholder=DEFAULT_PH; scrollBottom();
     return;
   }
+  // 自分の番：心の声を書き込み欄のプレースホルダにそのまま薄く出す（強調なし）
   awaitingPost=true;
-  if(phase.think){
-    const v=document.createElement('div'); v.className='innervoice';
-    v.textContent=phase.think; $inter.appendChild(v);
-  }
-  setTurn(true);
-  $body.placeholder='ここに書き込んでスレに参加…';
+  $body.placeholder = phase.think ? phase.think.replace(/[（）]/g,'') : DEFAULT_PH;
   $body.focus(); scrollBottom();
-}
-
-function setTurn(on){
-  $form.classList.toggle('awaiting', on);
-  $turn.textContent = on ? '▼ あなたの番です。スレに書き込めます' : '';
 }
 
 function submitPost(text){
@@ -543,7 +516,7 @@ function submitPost(text){
   lastLen=[...text].length; lastSlow=false;
   $body.value='';
   if(awaitingPost){
-    awaitingPost=false; setTurn(false); $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
+    awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
     phaseIdx++; setTimeout(playPhase,PACE.afterPost);
   }
 }
