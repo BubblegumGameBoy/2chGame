@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>身のまわりで変なことが起こったら実況するスレ</title>
+<!--
+  ============================================================
+  きさらぎ駅 / 神スレ体験プロトタイプ  (デザイン検証版)
+  ・オカルト板の実況スレUIを再現
+  ・コテハンを設定して住人の1人を演じる
+  ・選択式 or 自由入力で「2chに書き込む」体験
+  ・進行台本は SCRIPT 配列にデータ駆動で格納（後で正典テキスト／
+    生成画像に差し替え可能）。{PREV} はプレイヤーの直近レス番号に展開。
+  ============================================================
+-->
+<style>
+  :root{
+    --bg:#efefef;            /* 2ch定番の薄いグレー背景 */
+    --name-age:#178f00;      /* メール欄なし(age)＝緑のコテ/名無し */
+    --name-sage:#0000ee;     /* メール欄あり(sage)＝青リンク       */
+    --link:#0000ee;
+    --link-visited:#660099;
+    --title:#c00000;         /* スレタイの赤 */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);}
+  body{
+    color:#000;
+    font-family:"MS PGothic","MS Pゴシック","Hiragino Kaku Gothic ProN",
+                "Yu Gothic",Meiryo,sans-serif;
+    font-size:14px;
+    line-height:1.45;
+    padding:6px 10px 120px;
+    word-break:break-word;
+  }
+  a{color:var(--link);text-decoration:underline;cursor:pointer;}
+  a:visited{color:var(--link-visited);}
+
+  /* ---- ヘッダ / 板ナビ ---- */
+  .board-nav{font-size:12px;color:#444;margin-bottom:4px;}
+  .board-nav a{margin-right:6px;}
+  .thread-title{
+    color:var(--title);
+    font-size:21px;
+    font-weight:bold;
+    margin:6px 0 2px;
+    line-height:1.3;
+  }
+  .thread-sub{font-size:12px;color:#555;border-bottom:1px solid #b7b7b7;padding-bottom:6px;}
+  .res-count{font-size:12px;color:#777;}
+
+  /* ---- レス ---- */
+  #thread{margin-top:8px;}
+  .res{margin:0 0 2px;padding:1px 0;}
+  .res-meta{font-size:13px;}
+  .res-meta .num{font-weight:bold;color:#000;margin-right:2px;}
+  .res-meta .label{color:#000;}
+  .res-meta .name{font-weight:bold;}
+  .res-meta .name.age{color:var(--name-age);}
+  .res-meta .name.sage{color:var(--name-sage);text-decoration:underline;}
+  .res-meta .date{color:#000;}
+  .res-meta .id{color:#666;}
+  .res-body{
+    margin:3px 0 14px 22px;
+    line-height:1.6;
+    white-space:pre-wrap;
+  }
+  .res-body .anchor{color:var(--link);text-decoration:underline;}
+  .res.me .res-body{background:#fffbe2;}            /* 自分のレスをほのかに強調 */
+  .res.hasumi .name{color:#b3007a !important;}      /* はすみは目立つ色のコテ */
+
+  /* 画像（生成予定のプレースホルダ） */
+  .res-img{
+    display:inline-block;border:1px solid #999;background:#111;color:#9ad;
+    width:260px;height:150px;margin:6px 0 0;font-size:12px;
+    text-align:center;line-height:150px;opacity:.9;
+  }
+
+  /* ---- 進行が止まったときの「次へ」/選択肢 ---- */
+  #interaction{margin:14px 0 0 22px;}
+  .prompt{font-size:13px;color:#333;margin-bottom:6px;}
+  .choices{display:flex;flex-direction:column;gap:6px;max-width:680px;}
+  .choice-btn{
+    text-align:left;background:#fafafa;border:1px solid #aaa;border-radius:3px;
+    padding:7px 10px;font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  .choice-btn:hover{background:#eef3ff;border-color:#6688cc;}
+  .typing{color:#999;font-size:12px;font-style:italic;margin:6px 0 0 22px;}
+
+  /* ---- 書き込みフォーム（画面下固定） ---- */
+  #post-form{
+    position:fixed;left:0;right:0;bottom:0;background:#dcdcdc;
+    border-top:2px solid #999;padding:8px 10px;font-size:13px;
+  }
+  #post-form .row{display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap;}
+  #post-form label{color:#333;}
+  #post-form input[type=text]{padding:3px 5px;border:1px solid #999;font-size:13px;}
+  #post-form #name-in{width:170px;}
+  #post-form #mail-in{width:120px;}
+  #post-form textarea{
+    width:100%;height:46px;border:1px solid #999;padding:4px 6px;
+    font-family:inherit;font-size:13px;resize:vertical;
+  }
+  #post-form .submit{
+    margin-top:5px;padding:5px 18px;font-size:13px;font-family:inherit;
+    background:#f3f3f3;border:1px solid #888;border-radius:3px;cursor:pointer;
+  }
+  #post-form .submit:hover{background:#fff;}
+  #post-form .hint{font-size:11px;color:#777;}
+
+  /* ---- コテハン設定モーダル ---- */
+  #gate{
+    position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:50;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #gate .panel{
+    background:#efefef;border:1px solid #000;max-width:460px;width:90%;
+    padding:22px 24px;text-align:center;
+  }
+  #gate h1{font-size:18px;color:var(--title);margin:0 0 6px;}
+  #gate p{font-size:13px;color:#333;line-height:1.6;margin:6px 0;}
+  #gate input{padding:6px 8px;border:1px solid #888;font-size:14px;width:60%;margin-top:8px;}
+  #gate button{
+    display:block;margin:14px auto 0;padding:8px 26px;font-size:14px;
+    background:#222;color:#fff;border:none;border-radius:3px;cursor:pointer;
+  }
+  #gate .small{font-size:11px;color:#777;margin-top:10px;}
+</style>
+</head>
+<body>
+
+  <!-- 板ナビ -->
+  <div class="board-nav">
+    <a>■掲示板に戻る■</a><a>全部</a><a>1-100</a><a>最新50</a>
+    <span style="color:#888;">｜ オカルト超常現象＠２ちゃんねる掲示板</span>
+  </div>
+
+  <div class="thread-title">身のまわりで変なことが起こったら実況するスレ</div>
+  <div class="thread-sub">
+    1 ： 名前：本当にあった怖い名無し ： 2004/01/08(木)
+    <span class="res-count" id="res-count">　全1件</span>
+  </div>
+
+  <div id="thread"><!-- レスがここに積まれる --></div>
+  <div id="interaction"><!-- 選択肢/次へ --></div>
+
+  <!-- 書き込みフォーム -->
+  <form id="post-form" autocomplete="off">
+    <div class="row">
+      <label>名前：<input type="text" id="name-in"></label>
+      <label>E-mail（省略可）：<input type="text" id="mail-in" placeholder="sage"></label>
+      <span class="hint">※E-mail欄に sage と入れると名前が青く（下げ進行）なります</span>
+    </div>
+    <textarea id="body-in" placeholder="本文を書いて「書き込む」… or 上の選択肢をクリック"></textarea>
+    <button type="submit" class="submit">書き込む</button>
+  </form>
+
+  <!-- コテハン設定 -->
+  <div id="gate">
+    <div class="panel">
+      <h1>― オカルト超常現象板 ―</h1>
+      <p>2004年1月8日 23時すぎ。<br>あなたは深夜の実況スレを開いた。</p>
+      <p>このスレで使う<strong>コテハン（名前）</strong>を入れて、<br>住人の1人として参加しよう。</p>
+      <input type="text" id="gate-name" maxlength="24" placeholder="例：眠れない人">
+      <button id="gate-go">スレに参加する</button>
+      <div class="small">空欄なら「本当にあった怖い名無し」として参加します。</div>
+    </div>
+  </div>
+
+<script>
+/* =========================================================================
+   進行台本（データ駆動）
+   posts[]  : 1フェーズで自動的に流れる住人/はすみのレス
+   prompt   : プレイヤーへの問いかけ
+   choices[]: 選択肢（自由入力でも可）
+   body内 {PREV} はプレイヤー直近レス番号に展開
+   ※テキストは「きさらぎ駅」の忠実な再構成。正典コピペ／生成画像に差替予定。
+   ========================================================================= */
+const HASUMI = {name:"はすみ", id:"Hsm/kIsa0", hasumi:true};
+
+const SCRIPT = [
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/08 23:14", body:"気のせいかも知れませんがよろしいですか？"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/08 23:15", body:"どうぞ"},
+      {...HASUMI, mail:"", date:"04/01/08 23:18",
+        body:"先程から某私鉄に乗車しているのですが、様子がおかしいのです。\nもう20分くらい、ずっと止まらないで走り続けています。\nいつもなら、長くても7、8分で次の駅に着くのに…"},
+      {name:"本当にあった怖い名無し", mail:"sage", date:"04/01/08 23:19", body:"寝過ごしてるだけだろ"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/08 23:20", body:"居眠りして乗り過ごしたんじゃね？"},
+      {...HASUMI, mail:"", date:"04/01/08 23:23",
+        body:"車内には私を入れて5人ほど。皆さん眠っています。\n車掌さんの姿も、さっきから見当たりません。"},
+    ],
+    prompt:"あなたはどう書き込む？（選択肢をクリック or 下の本文欄に自由入力）",
+    choices:[
+      "次の駅で降りて駅員に聞いた方がいいよ",
+      "釣りじゃないなら写真うp",
+      "非常停止ボタン押せ！",
+    ]},
+
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/08 23:41",
+        body:">>{PREV} ありがとうございます。やっと、次の駅に停まりそうです。"},
+      {...HASUMI, mail:"", date:"04/01/08 23:45",
+        body:"「きさらぎ駅」という所で降りました。\n聞いたことのない駅名です。"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/08 23:46", body:"きさらぎ駅？どこの路線だよ"},
+      {name:"本当にあった怖い名無し", mail:"sage", date:"04/01/08 23:47", body:"ぐぐっても出てこないんだが…"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/08 23:48", body:"釣り乙"},
+    ],
+    prompt:"スレが少しざわついてきた。あなたは？",
+    choices:[
+      "周りの様子をもっと詳しく教えて",
+      "GPSの位置はどこ指してる？",
+      "とりあえず駅名標の写真撮れる？",
+    ]},
+
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/09 00:09",
+        body:">>{PREV} 無人駅です。明かりもまばらで、駅員さんもいません。\n時刻表も、駅名標もありません。"},
+      {...HASUMI, mail:"", date:"04/01/09 00:12",
+        body:"駅の外に出ても、田んぼと山ばかり。\n民家の灯りも、人の気配もありません。", img:"きさらぎ駅のホーム（生成予定）"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 00:14", body:"タクシー呼べ"},
+      {...HASUMI, mail:"", date:"04/01/09 00:31",
+        body:"タクシー会社に電話したら、『きさらぎ駅？そんな駅はありません』と\n笑われて切られてしまいました。"},
+    ],
+    prompt:"だんだん洒落にならなくなってきた。",
+    choices:[
+      "そこから動かないで。誰か呼べないか考えよう",
+      "110番していい状況だと思う",
+      "線路沿いに歩けば隣の駅に着くんじゃ？",
+    ]},
+
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/09 01:03",
+        body:">>{PREV} 仕方がないので、線路沿いを歩いて戻ってみます。"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 01:04", body:"線路歩くのは危ないからやめとけ！"},
+      {...HASUMI, mail:"", date:"04/01/09 01:39",
+        body:"遠くの方から、太鼓みたいな音と、鈴の音が聞こえてきました。\nだんだん、こっちに近づいてくる気がします…"},
+      {name:"本当にあった怖い名無し", mail:"sage", date:"04/01/09 01:40", body:"鳥肌たった"},
+    ],
+    prompt:"音が近づいてくる。あなたは何を書き込む？",
+    choices:[
+      "音のする方には絶対行くな。隠れて",
+      "落ち着いて。今いる場所の目印を教えて",
+      "走れ！とにかくその場を離れろ",
+    ]},
+
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/09 02:24",
+        body:"後ろから『おーい、そこ歩いたら危ないよ』と声をかけられました。\n振り返ったら、片足のおじいさんが立っていて…"},
+      {...HASUMI, mail:"", date:"04/01/09 02:26",
+        body:"お礼を言おうとしたら、もう、どこにもいませんでした。"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 02:27", body:"…そのおじいさん、足あったか？"},
+      {name:"本当にあった怖い名無し", mail:"sage", date:"04/01/09 02:28", body:"はすみさん無事か？気をつけて"},
+    ],
+    prompt:"スレは固唾を呑んで見守っている。",
+    choices:[
+      "もう線路から離れた方がいい。広い道に出られない？",
+      "携帯の充電は大丈夫？こまめに状況だけ書いて",
+      "その声、もう一度聞こえたら返事しちゃダメだ",
+    ]},
+
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/09 03:10",
+        body:">>{PREV} しばらく歩くと、『伊佐貫』というトンネルに着きました。\n長くて真っ暗で、すごく嫌な感じがします。", img:"伊佐貫トンネル（生成予定）"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 03:11", body:"入るな！引き返せ！！"},
+      {...HASUMI, mail:"", date:"04/01/09 03:29",
+        body:"意を決して、トンネルを抜けました。\n…その先に、男の人が立っていました。"},
+    ],
+    prompt:"見知らぬ男が立っている。最後にどう書き込む？",
+    choices:[
+      "知らない人にはついて行かないで！",
+      "その人の特徴を、今すぐここに書いて",
+      "大丈夫。落ち着いて、ゆっくり話を聞いてみて",
+    ]},
+
+  { posts:[
+      {...HASUMI, mail:"", date:"04/01/09 03:42",
+        body:">>{PREV} 親切な男の人で、車で近くの駅まで送ってくれるそうです。\n皆さん、本当にありがとうございました。"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 03:43", body:"知らない奴の車に乗るな！！！"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 03:43", body:"はすみさん！！返事して！！"},
+      {...HASUMI, mail:"", date:"04/01/09 03:44", body:"……"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 03:51", body:"おい"},
+      {name:"本当にあった怖い名無し", mail:"", date:"04/01/09 04:08", body:"はすみ……？"},
+      {name:"本当にあった怖い名無し", mail:"sage", date:"04/01/09 04:33", body:"誰か……"},
+      {name:"本当にあった怖い名無し", mail:"", date:"2011/06/30 22:10",
+        body:"あの……7年前に、ここに書き込んだ、はすみです。\nやっと、こっちに帰ってこられました。"},
+    ],
+    prompt:null, choices:null, end:true},
+];
+
+/* ========================================================================= */
+let phaseIdx = 0;
+let resNo = 0;
+let lastMyRes = 1;          // {PREV} 初期値
+let player = {name:"本当にあった怖い名無し", id:randId()};
+
+const $thread = document.getElementById('thread');
+const $inter  = document.getElementById('interaction');
+const $count  = document.getElementById('res-count');
+
+function randId(){
+  const c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let s=""; for(let i=0;i<7;i++) s+=c[Math.floor(Math.random()*c.length)];
+  return s+"0";
+}
+function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function linkAnchors(t){
+  return t.replace(/&gt;&gt;(\d+)/g,'<span class="anchor">&gt;&gt;$1</span>');
+}
+
+function renderRes(p){
+  resNo++;
+  const sage = (p.mail||'').toLowerCase()==='sage';
+  const nameCls = sage ? 'sage' : 'age';
+  const cls = ['res'];
+  if(p.me) cls.push('me');
+  if(p.hasumi) cls.push('hasumi');
+  const id = p.id || randId();
+  const body = linkAnchors(esc(p.body).replace(/\{PREV\}/g,lastMyRes));
+  const img = p.img ? `<div class="res-img">［画像：${esc(p.img)}］</div>` : '';
+  const el = document.createElement('div');
+  el.className = cls.join(' ');
+  el.innerHTML =
+    `<div class="res-meta">`+
+      `<span class="num">${resNo}</span>`+
+      `<span class="label"> 名前：</span>`+
+      `<span class="name ${nameCls}">${esc(p.name)}</span>`+
+      `<span class="label"> 投稿日：</span>`+
+      `<span class="date">${esc(p.date)}</span> `+
+      `<span class="id">ID:${id}</span>`+
+    `</div>`+
+    `<div class="res-body">${body}${img}</div>`;
+  $thread.appendChild(el);
+  $count.textContent = `　全${resNo}件`;
+  window.scrollTo(0, document.body.scrollHeight);
+  return resNo;
+}
+
+/* 住人レスを1件ずつ、ライブ感を出して流す */
+function playPhase(){
+  const phase = SCRIPT[phaseIdx];
+  if(!phase){ return; }
+  $inter.innerHTML = '';
+  let i = 0;
+  const typing = document.createElement('div');
+  typing.className='typing';
+  const step = ()=>{
+    if(i < phase.posts.length){
+      typing.textContent = '……誰かが書き込んでいる……';
+      $inter.appendChild(typing);
+      window.scrollTo(0, document.body.scrollHeight);
+      setTimeout(()=>{
+        renderRes(phase.posts[i]); i++;
+        setTimeout(step, 250);
+      }, 420 + Math.random()*420);
+    } else {
+      typing.remove();
+      showInteraction(phase);
+    }
+  };
+  step();
+}
+
+function showInteraction(phase){
+  $inter.innerHTML = '';
+  if(phase.end){
+    const e=document.createElement('div');
+    e.className='prompt';
+    e.innerHTML='<span style="color:#888;">― このスレッドは過去ログ倉庫に格納されました ―</span>';
+    $inter.appendChild(e);
+    return;
+  }
+  const pr=document.createElement('div');
+  pr.className='prompt'; pr.textContent=phase.prompt;
+  $inter.appendChild(pr);
+  const box=document.createElement('div'); box.className='choices';
+  (phase.choices||[]).forEach(text=>{
+    const b=document.createElement('button');
+    b.type='button'; b.className='choice-btn'; b.textContent=text;
+    b.onclick=()=>submitPost(text);
+    box.appendChild(b);
+  });
+  $inter.appendChild(box);
+}
+
+function submitPost(text){
+  text=(text||'').trim();
+  if(!text) return;
+  const mail=document.getElementById('mail-in').value.trim();
+  const liveName=document.getElementById('name-in').value.trim() || "本当にあった怖い名無し";
+  lastMyRes = renderRes({name:liveName, id:player.id, mail, date:nowStamp(), body:text, me:true});
+  document.getElementById('body-in').value='';
+  $inter.innerHTML='';
+  phaseIdx++;
+  setTimeout(playPhase, 500);
+}
+
+function nowStamp(){
+  // 進行中フェーズの時間帯にだいたい合わせた擬似タイムスタンプ
+  const base = SCRIPT[phaseIdx]?.posts?.[0]?.date || "04/01/09 0"+(phaseIdx)+":00";
+  return base.replace(/:\d\d$/, ':'+String(10+Math.floor(Math.random()*40)));
+}
+
+/* ---- フォーム送信（自由入力） ---- */
+document.getElementById('post-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  submitPost(document.getElementById('body-in').value);
+});
+
+/* ---- コテハン設定 → 開始 ---- */
+document.getElementById('gate-go').addEventListener('click',()=>{
+  const v=document.getElementById('gate-name').value.trim();
+  player.name = v || "本当にあった怖い名無し";
+  document.getElementById('name-in').value = player.name;
+  document.getElementById('gate').style.display='none';
+  playPhase();
+});
+document.getElementById('gate-name').addEventListener('keydown',e=>{
+  if(e.key==='Enter') document.getElementById('gate-go').click();
+});
+</script>
+</body>
+</html>
