@@ -60,6 +60,9 @@
   .timeskip{text-align:center;color:#999;font-size:12px;margin:14px 0;letter-spacing:1px;}
   #interaction{margin:14px 0 0 22px;}
   .typing{color:#999;font-size:12px;font-style:italic;margin:6px 0 0 22px;}
+  .typing .tap{color:#bbb;font-style:normal;cursor:pointer;margin-left:4px;}
+  /* 「あなたの番」のときに出る心の声（次のレス位置に薄く） */
+  .innervoice{color:#9a8f78;font-style:italic;font-size:13px;margin:10px 0 0;}
   .endnote{color:#555;font-size:13px;margin:18px 0;border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;
     padding:14px 6px;background:#eaeaea;}
 
@@ -74,6 +77,9 @@
   #post-form .submit{margin-top:5px;padding:5px 18px;font-size:13px;font-family:inherit;background:#f3f3f3;border:1px solid #888;border-radius:3px;cursor:pointer;}
   #post-form .submit:hover{background:#fff;}
   #post-form .hint{font-size:11px;color:#777;}
+  /* 自分の番＝フォームをほのかに強調（吹き出しは出さず動線だけ示す） */
+  #post-form.awaiting{background:#e7ddc4;border-top-color:#c00000;}
+  #post-form .hint.turn{color:#c00000;font-weight:bold;}
 
   #gate{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:50;display:flex;align-items:center;justify-content:center;}
   #gate .panel{background:#efefef;border:1px solid #000;max-width:480px;width:90%;padding:22px 24px;text-align:center;}
@@ -109,6 +115,7 @@
       <label>名前：<input type="text" id="name-in"></label>
       <label>E-mail（省略可）：<input type="text" id="mail-in" placeholder="sage"></label>
       <span class="hint">※E-mail欄に sage と入れると名前が青く（下げ進行）なります</span>
+      <span class="hint turn" id="turn-hint"></span>
     </div>
     <textarea id="body-in" placeholder="本文を書いて「書き込む」"></textarea>
     <button type="submit" class="submit">書き込む</button>
@@ -126,18 +133,20 @@
   </div>
 
 <script>
-/* ===== テンポ調整つまみ（ここをいじれば全体の間が変わる） ================= */
+/* ===== テンポ調整つまみ（ここをいじれば全体の間が変わる） =================
+   遅延は「直前に表示したレスの長さ＝読む時間」を基準にする。
+   速い人はクリック／タップ／スペースで次のレスを即送りできる。           */
 const PACE = {
-  msPerMinGap: 95,   // タイムスタンプ1分差あたりの遅延(ms)
-  minDelay:    380,  // 最短遅延
-  maxDelay:    1500, // 最長遅延
-  slowMul:     1.8,  // slow指定レスの倍率
-  slowMin:     1200, // slowレスの最短
-  skipMin:     7,    // 何分以上空いたら「── 約N分後 ──」を出すか
-  afterPost:   500,  // 自分の書き込み後、次が動き出すまで
+  readBase:  1600,  // 1レスあたりの基礎ウェイト(ms)
+  msPerChar:   85,  // 本文1文字あたりの加算(ms)＝読む時間
+  minDelay:  2600,  // 最短ウェイト
+  maxDelay:  9000,  // 最長ウェイト（長文でも上限）
+  slowMul:    1.6,  // slow指定レス（ここぞの一拍）の倍率
+  skipMin:      7,  // 何分以上空いたら「── 約N分後 ──」を出すか
+  afterPost:  800,  // 自分の書き込み後、次が動き出すまで
 };
 const NONAME = "あなたのうしろに名無しさんが･･･";
-const HASUMI = {name:"はすみ", trip:"◆KkRQjKFCDs", hasumi:true};
+const HASUMI = {name:"はすみ", trip:"◆KkRQjKFCDs", hasumi:true, id:"aW6/3/70"};
 
 /* ===== 進行台本（一本道） =================================================
    posts[]: 自動で流れるレス  {no,name,trip,mail,date,body,hasumi,img,slow}
@@ -165,12 +174,12 @@ const SCRIPT = [
   { posts:[
       N(38,"2004/01/08 23:05","眠い。誰かガチのやつ来ないかな",{mail:"sage"}),
       N(55,"2004/01/08 23:11","深夜のｵｶ板はこのﾏｯﾀﾘ感がいい"),
-      N(98,"2004/01/08 23:14","気のせいかも知れませんがよろしいですか？"),
+      H(98,"2004/01/08 23:14","気のせいかも知れませんがよろしいですか？"),
       N(99,"2004/01/08 23:16","取りあえずどうぞ"),
       N(100,"2004/01/08 23:18",">>98\n何がおきてるの？"),
-      N(101,"2004/01/08 23:18","先程から某私鉄に乗車しているのですが、様子がおかしいのです。"),
+      H(101,"2004/01/08 23:18","先程から某私鉄に乗車しているのですが、様子がおかしいのです。"),
       N(104,"2004/01/08 23:19","ふんふん"),
-      N(107,"2004/01/08 23:23","いつも通勤に使っている電車なのですが、先程から20分くらい駅に停まりません。いつもは5分か長くても7、8分で停車するのですが停まりません。乗客は私のほかに5人いますが皆寝ています。"),
+      H(107,"2004/01/08 23:23","いつも通勤に使っている電車なのですが、先程から20分くらい駅に停まりません。いつもは5分か長くても7、8分で停車するのですが停まりません。乗客は私のほかに5人いますが皆寝ています。"),
       N(108,"2004/01/08 23:23","もう、電車降りちゃったりしてないよね？"),
     ],
     think:"（寝過ごしか乗り間違いでは？一応、車掌を見てこいって言っとくか）" },
@@ -179,11 +188,11 @@ const SCRIPT = [
   { posts:[
       N(111,"2004/01/08 23:25","特急とか各停とかの違いじゃないの？"),
       N(112,"2004/01/08 23:25",">>107\n快速電車？",{mail:"sage"}),
-      N(114,"2004/01/08 23:29","ご指摘通りに、乗り間違えた可能性もあるかもしれませんね。もう少し我慢してみます。また、おかしいようであれば相談させていただきたいと思います。"),
+      H(114,"2004/01/08 23:29","ご指摘通りに、乗り間違えた可能性もあるかもしれませんね。もう少し我慢してみます。また、おかしいようであれば相談させていただきたいと思います。"),
       N(115,"2004/01/08 23:35","とりあえず一番端っこの車両に行って\n車掌を見に行ってみれば？"),
       N(116,"2004/01/08 23:40","もし運転手がてんかんを起こしてたら大変だ。車掌室まで見に行ってこい！"),
-      N(118,"2004/01/08 23:44","まだ停まる気配がないのでちょっと見てきます。"),
-      N(126,"2004/01/09 00:00","ﾌﾞﾗｲﾝﾄﾞというか窓に目隠しがしてあって、車掌さんも運転手さんも見えませんでした。路線は静岡県の私鉄です。"),
+      H(118,"2004/01/08 23:44","まだ停まる気配がないのでちょっと見てきます。"),
+      H(126,"2004/01/09 00:00","ﾌﾞﾗｲﾝﾄﾞというか窓に目隠しがしてあって、車掌さんも運転手さんも見えませんでした。路線は静岡県の私鉄です。"),
       N(131,"2004/01/09 00:02",">>126\n窓をｺﾝｺﾝしてみたら？"),
       H(137,"2004/01/09 00:08","窓を叩いてみたのですが返事はなかったです。"),
       N(146,"2004/01/09 00:13","窓から外見えないの？\n通過した駅の名前とか"),
@@ -339,7 +348,8 @@ const SCRIPT = [
 ];
 
 /* ========================================================================= */
-let phaseIdx=0, lastNo=0, lastMin=null, awaitingPost=false, lastDate="2004/01/08 22:38";
+let phaseIdx=0, lastNo=0, lastMin=null, lastLen=0, lastSlow=false;
+let awaitingPost=false, lastDate="2004/01/08 22:38", pending=null;
 let player={id:randId()};
 const DEFAULT_PH="本文を書いて「書き込む」";
 
@@ -348,6 +358,9 @@ const $inter =document.getElementById('interaction');
 const $count =document.getElementById('res-count');
 const $clock =document.getElementById('clock');
 const $body  =document.getElementById('body-in');
+const $form  =document.getElementById('post-form');
+const $turn  =document.getElementById('turn-hint');
+function scrollBottom(){window.scrollTo(0,document.body.scrollHeight);}
 
 function randId(){
   const c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -390,15 +403,13 @@ function renderRes(p,isMe){
   window.scrollTo(0, document.body.scrollHeight);
 }
 
-function delayFor(p){
-  let d=PACE.minDelay;
-  const cur=parseMin(p.date);
-  if(lastMin!=null && cur!=null){
-    d=Math.max(PACE.minDelay, Math.min(PACE.maxDelay,(cur-lastMin)*PACE.msPerMinGap));
-  }
-  if(p.slow) d=Math.max(PACE.slowMin, d*PACE.slowMul);
-  return d + Math.random()*200;
+/* 次のレスまでの待ち＝「直前のレスを読む時間」。長文ほど長く待つ。 */
+function delayFor(){
+  let d=Math.min(PACE.maxDelay, PACE.readBase + lastLen*PACE.msPerChar);
+  if(lastSlow) d*=PACE.slowMul;
+  return Math.max(PACE.minDelay, d) + Math.random()*250;
 }
+function clearPending(){ if(pending){clearTimeout(pending.timer); pending=null;} }
 
 function insertInlineAd(){
   const ad=document.createElement('div'); ad.className='ad ad-inline';
@@ -408,28 +419,29 @@ function insertInlineAd(){
 
 function playPhase(){
   const phase=SCRIPT[phaseIdx]; if(!phase) return;
-  awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
+  awaitingPost=false; setTurn(false); $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
   let i=0;
   const typing=document.createElement('div'); typing.className='typing';
-  const step=()=>{
+  typing.innerHTML='……誰かが書き込んでいる……<span class="tap">▼ タップ／スペースで次へ</span>';
+  const reveal=()=>{
+    clearPending(); typing.remove();
+    const p=phase.posts[i];
+    timeskip(p.date); renderRes(p,false);
+    lastLen=[...(p.body||'')].length; lastSlow=!!p.slow;
+    const cur=parseMin(p.date); if(cur!=null) lastMin=cur;
+    i++; schedule();
+  };
+  const schedule=()=>{
     if(i<phase.posts.length){
-      const p=phase.posts[i];
-      typing.textContent='……誰かが書き込んでいる……';
-      $inter.appendChild(typing); window.scrollTo(0,document.body.scrollHeight);
-      setTimeout(()=>{
-        typing.remove();
-        timeskip(p.date);
-        renderRes(p,false);
-        const cur=parseMin(p.date); if(cur!=null) lastMin=cur;
-        i++; setTimeout(step,180);
-      }, delayFor(p));
+      $inter.appendChild(typing); scrollBottom();
+      pending={reveal, timer:setTimeout(reveal, delayFor())};
     } else {
       typing.remove();
       if(phase.adAfter) insertInlineAd();
       openGate(phase);
     }
   };
-  step();
+  schedule();
 }
 
 function openGate(phase){
@@ -439,12 +451,23 @@ function openGate(phase){
       const e=document.createElement('div'); e.className='endnote';
       e.textContent=phase.endNote; $inter.appendChild(e);
     }
-    $body.placeholder=DEFAULT_PH; window.scrollTo(0,document.body.scrollHeight);
+    setTurn(false); $body.placeholder=DEFAULT_PH; scrollBottom();
     return;
   }
+  // 「あなたの番」：心の声を次のレス位置に薄く出し、フォームを強調（動線）
   awaitingPost=true;
-  $body.placeholder=phase.think||DEFAULT_PH;
-  $body.focus();
+  if(phase.think){
+    const v=document.createElement('div'); v.className='innervoice';
+    v.textContent=phase.think; $inter.appendChild(v);
+  }
+  setTurn(true);
+  $body.placeholder='ここに書き込んでスレに参加…';
+  $body.focus(); scrollBottom();
+}
+
+function setTurn(on){
+  $form.classList.toggle('awaiting', on);
+  $turn.textContent = on ? '▼ あなたの番です。スレに書き込めます' : '';
 }
 
 function submitPost(text){
@@ -452,14 +475,25 @@ function submitPost(text){
   const mail=document.getElementById('mail-in').value.trim();
   const name=document.getElementById('name-in').value.trim()||NONAME;
   renderRes({name,id:player.id,mail,date:lastDate,body:text},true);
+  lastLen=[...text].length; lastSlow=false;
   $body.value='';
   if(awaitingPost){
-    awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
+    awaitingPost=false; setTurn(false); $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
     phaseIdx++; setTimeout(playPhase,PACE.afterPost);
   }
 }
 
-document.getElementById('post-form').addEventListener('submit',e=>{e.preventDefault();submitPost($body.value);});
+$form.addEventListener('submit',e=>{e.preventDefault();submitPost($body.value);});
+
+/* 速い人向け：タップ／クリック／スペース・Enterで待ち時間を飛ばして次のレスへ */
+document.addEventListener('click',e=>{
+  if(e.target.closest('#post-form')||e.target.closest('#gate')) return;
+  if(pending) pending.reveal();
+});
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+  if((e.key===' '||e.key==='Enter')&&pending){e.preventDefault();pending.reveal();}
+});
 document.getElementById('gate-go').addEventListener('click',()=>{
   const v=document.getElementById('gate-name').value.trim();
   document.getElementById('name-in').value=v||NONAME;
