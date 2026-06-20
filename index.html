@@ -35,11 +35,11 @@
     display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;}
   #clock{color:#444;font-weight:bold;}
 
-  .ad{margin:10px auto;border:1px dashed #b0b0b0;background:#f6f6f6;color:#999;
-    display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;letter-spacing:.5px;}
-  .ad-top,.ad-bottom{max-width:728px;height:90px;}
-  .ad-inline{max-width:336px;height:90px;margin:14px 0 14px 22px;}
-  .ad small{display:block;color:#bbb;font-size:10px;margin-top:2px;}
+  .ad{margin:10px auto;text-align:center;overflow:hidden;}
+  .ad-top,.ad-bottom{max-width:728px;}
+  .ad-inline{max-width:336px;margin:14px 0 14px 22px;}
+  .ad iframe{border:0;width:100%;display:block;}
+  .scene-fallback svg{display:block;}
 
   #thread{margin-top:6px;}
   .res{margin:0 0 2px;padding:1px 0;}
@@ -102,12 +102,12 @@
     <span id="clock">現在 22:38</span>
   </div>
 
-  <div class="ad ad-top" id="ad-top">広告スペース（728×90）<small>※ここに広告タグを挿入</small></div>
+  <div class="ad ad-top" id="ad-top"></div>
 
   <div id="thread"></div>
   <div id="interaction"></div>
 
-  <div class="ad ad-bottom" id="ad-bottom">広告スペース（728×90）<small>※ここに広告タグを挿入</small></div>
+  <div class="ad ad-bottom" id="ad-bottom"></div>
 
   <form id="post-form" autocomplete="off">
     <div class="row">
@@ -263,7 +263,7 @@ const SCRIPT = [
       N(162,"2004/01/09 00:26","降りてみ降りてみ"),
       N(165,"2004/01/09 00:28","いや終点まで乗っとけって"),
       N(166,"2004/01/09 00:29","つーかもう発車してるんじゃね"),
-      O(167,"2004/01/09 00:29","降りちゃいました。無人駅です。乗ったのは23時40分くらいの電車だったと思います。",{img:"station"}),
+      O(167,"2004/01/09 00:29","降りちゃいました。無人駅です。乗ったのは23時40分くらいの電車だったと思います。",{img:{src:"ささなき駅ホーム名前あり.png",cap:"ささなき駅のホーム",fallback:"station"}}),
       {no:168,name:"夜勤明け",trip:"◆yaKin.M2o",mail:"",date:"2004/01/09 00:30",
         body:"ささなき駅、ぐぐっても出てこないな…。てか1時間も走ってたのかよその電車。\nじゃ俺ほんとに風呂入るわ。後よろしく"},
       N(170,"2004/01/09 00:32","ささなき駅で検索かけても何も出てこねえ",{mail:"sage"}),
@@ -363,7 +363,7 @@ const SCRIPT = [
       N(488,"2004/01/09 02:32",">>ましろ とりあえずトンネル抜けたら安全だと思う。抜けたらすぐ通報して、保護してもらえ"),
       O(492,"2004/01/09 02:35","家に電話しました。父が警察に掛けてくれるそうです。でも、音がどんどん近づいてきます。"),
       N(500,"2004/01/09 02:38","その音が電車の音じゃないことを祈るぜ。…って言っても、もう遅いかもしれんが",{mail:"sage"}),
-      O(516,"2004/01/09 02:45","なんとか頑張ってトンネルの前まで来ました。入口に「藤倉」って書いてあります。音も近いので、勇気を出して抜けてみます。ましろが無事に抜けられたら、また書き込みます。",{slow:true,img:"tunnel"}),
+      O(516,"2004/01/09 02:45","なんとか頑張ってトンネルの前まで来ました。入口に「藤倉」って書いてあります。音も近いので、勇気を出して抜けてみます。ましろが無事に抜けられたら、また書き込みます。",{slow:true,img:{src:"トンネル藤倉.png",cap:"藤倉トンネルの入口",fallback:"tunnel"}}),
     ],
     think:"（藤倉トンネル…抜けろと言うべきか、戻れと言うべきか）" },
 
@@ -423,9 +423,13 @@ function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
 function anchors(t){return t.replace(/&gt;&gt;(\d+)/g,'<span class="anchor">&gt;&gt;$1</span>');}
 function renderImg(img){
   if(!img) return '';
-  if(typeof img==='object' && img.src)            // 差し替え用：実画像ファイル
-    return `<div class="scene-wrap"><img class="scene" src="${esc(img.src)}" alt="${esc(img.cap||'')}">`+
+  if(typeof img==='object' && img.src){           // 実画像。失敗時はSVGへフォールバック
+    const fb=(img.fallback&&IMAGES[img.fallback])?IMAGES[img.fallback].svg:'';
+    const onerr=fb?` onerror="this.style.display='none';this.nextElementSibling.style.display='block'"`:'';
+    return `<div class="scene-wrap"><img class="scene" src="${esc(encodeURI(img.src))}" alt="${esc(img.cap||'')}"${onerr}>`+
+           (fb?`<div class="scene-fallback" style="display:none">${fb}</div>`:'')+
            (img.cap?`<div class="scene-cap">［${esc(img.cap)}］</div>`:'')+`</div>`;
+  }
   if(IMAGES[img])                                  // コード生成の雰囲気SVG
     return `<div class="scene-wrap">${IMAGES[img].svg}<div class="scene-cap">［${esc(IMAGES[img].cap)}］</div></div>`;
   return `<div class="res-img">［画像：${esc(img)}］</div>`; // 後方互換：プレースホルダ枠
@@ -460,10 +464,22 @@ function delayFor(){
 }
 function clearPending(){ if(pending){clearTimeout(pending.timer); pending=null;} }
 
+/* ===== 広告（忍者AdMax・仮置き）=========================================
+   document.write 系タグの暴発でページが壊れないよう iframe(srcdoc) で隔離。
+   サイズが合わない時は adIframe の高さ(h)を調整するだけ。                 */
+const AD_SRC="https://adm.shinobi.jp/s/b4a3c3ce89e0869c76a0ebedd9a66059";
+function adIframe(h){
+  const f=document.createElement('iframe');
+  f.scrolling='no'; f.loading='lazy';
+  f.style.cssText='border:0;width:100%;height:'+h+'px;display:block;';
+  f.srcdoc='<!doctype html><meta charset="utf-8"><style>html,body{margin:0;padding:0;overflow:hidden;text-align:center}</style><!-- admax --><script src="'+AD_SRC+'"><\/script><!-- admax -->';
+  return f;
+}
+function mountAd(el,h){ if(el){ el.innerHTML=''; el.appendChild(adIframe(h)); } }
 function insertInlineAd(){
-  const ad=document.createElement('div'); ad.className='ad ad-inline';
-  ad.innerHTML='広告スペース（336×90）<small>※ここに広告タグを挿入</small>';
-  $thread.appendChild(ad); scrollBottom();
+  const box=document.createElement('div'); box.className='ad ad-inline';
+  box.appendChild(adIframe(260));
+  $thread.appendChild(box); scrollBottom();
 }
 
 function playPhase(){
@@ -540,6 +556,10 @@ document.getElementById('gate-go').addEventListener('click',()=>{
   playPhase();
 });
 document.getElementById('gate-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gate-go').click();});
+
+/* 上部・下部バナーを描画（インラインは story 進行中に insertInlineAd で挿入） */
+mountAd(document.getElementById('ad-top'),100);
+mountAd(document.getElementById('ad-bottom'),100);
 </script>
 </body>
 </html>
