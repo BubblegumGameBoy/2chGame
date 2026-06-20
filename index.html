@@ -67,7 +67,6 @@
 
   #interaction{margin:14px 0 0 22px;}
   .typing{color:#999;font-size:12px;font-style:italic;margin:6px 0 0 22px;}
-  .typing .tap{color:#bbb;font-style:normal;cursor:pointer;margin-left:4px;}
   .endnote{color:#555;font-size:13px;margin:18px 0;border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;
     padding:14px 6px;background:#eaeaea;}
 
@@ -140,7 +139,12 @@ const PACE = {
   slowMul: 1.6, afterPost: 800,
 };
 const NONAME = "うしろの名無しさん";
-const OP = {name:"ましろ", trip:"◆mShiro7Ksc", op:true, id:"x9Km/.Ai0"};
+/* ランダム英数字（ID＝末尾0の8桁／トリップ＝10桁。実際のトリップ風に） */
+const B62="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+function randStr(n){let s="";for(let i=0;i<n;i++)s+=B62[Math.floor(Math.random()*62)];return s;}
+function randId(){return randStr(7)+"0";}
+function randTrip(){return randStr(10);}
+const OP = {name:"ましろ", op:true, trip:"◆"+randTrip(), id:randId()};
 
 /* ===== 場面画像 ==========================================================
    いまはコード生成の雰囲気SVG。AIで作ったフォト画像に差し替えるときは
@@ -398,12 +402,13 @@ const SCRIPT = [
       O(635,"2004/01/09 03:44","もうケータイのバッテリーがやばいです。様子が変なので、隙を見て逃げようと思います。いざという時のために、一応これを最後の書き込みにしておきます。",{slow:true}),
     ],
     think:null, end:true,
-    endNote:"※この後、「ましろ ◆mShiro7Ksc」さんが書き込むことは、二度とありませんでした。" },
+    endNote:"※この後、「ましろ {TRIP}」さんが書き込むことは、二度とありませんでした。" },
 ];
 
 /* ========================================================================= */
 let phaseIdx=0, lastNo=0, lastLen=0, lastSlow=false;
 let awaitingPost=false, lastDate="2004/01/08 22:38", pending=null;
+const seqMap={};  // 台本の原典番号 → 実際の通し番号
 let player={id:randId()};
 const DEFAULT_PH="本文を書いて「書き込む」";
 
@@ -415,21 +420,20 @@ const $body  =document.getElementById('body-in');
 const $form  =document.getElementById('post-form');
 function scrollBottom(){window.scrollTo(0,document.body.scrollHeight);}
 
-function randId(){
-  const c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let s=""; for(let i=0;i<7;i++) s+=c[Math.floor(Math.random()*c.length)];
-  return s+"0";
-}
 function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function anchors(t){return t.replace(/&gt;&gt;(\d+)/g,'<span class="anchor">&gt;&gt;$1</span>');}
+function anchors(t,remap){
+  return t.replace(/&gt;&gt;(\d+)/g,(m,num)=>{
+    let n=+num; if(remap && seqMap[n]!=null) n=seqMap[n];
+    return '<span class="anchor">&gt;&gt;'+n+'</span>';
+  });
+}
 function renderImg(img){
   if(!img) return '';
-  if(typeof img==='object' && img.src){           // 実画像。失敗時はSVGへフォールバック
+  if(typeof img==='object' && img.src){           // 実画像（文字は入れない）。失敗時はSVGへ
     const fb=(img.fallback&&IMAGES[img.fallback])?IMAGES[img.fallback].svg:'';
     const onerr=fb?` onerror="this.style.display='none';this.nextElementSibling.style.display='block'"`:'';
-    return `<div class="scene-wrap"><img class="scene" src="${esc(encodeURI(img.src))}" alt="${esc(img.cap||'')}"${onerr}>`+
-           (fb?`<div class="scene-fallback" style="display:none">${fb}</div>`:'')+
-           (img.cap?`<div class="scene-cap">［${esc(img.cap)}］</div>`:'')+`</div>`;
+    return `<div class="scene-wrap"><img class="scene" src="${esc(encodeURI(img.src))}" alt=""${onerr}>`+
+           (fb?`<div class="scene-fallback" style="display:none">${fb}</div>`:'')+`</div>`;
   }
   if(IMAGES[img])                                  // コード生成の雰囲気SVG
     return `<div class="scene-wrap">${IMAGES[img].svg}<div class="scene-cap">［${esc(IMAGES[img].cap)}］</div></div>`;
@@ -438,12 +442,13 @@ function renderImg(img){
 function hhmm(d){const m=d.match(/(\d{1,2}):(\d{2})/);return m?m[1].padStart(2,'0')+':'+m[2]:'';}
 
 function renderRes(p,isMe){
-  const n=Math.max(p.no||lastNo+1, lastNo+1); lastNo=n;
+  const n=++lastNo;                       // 通し番号（連番）
+  if(p.no!=null) seqMap[p.no]=n;          // 原典番号→通し番号の対応を記録
   const date=p.date||lastDate; lastDate=date;
   const sage=(p.mail||'').toLowerCase()==='sage';
   const cls=['res']; if(isMe)cls.push('me'); if(p.op)cls.push('op');
   const trip=p.trip?`<span class="trip"> ${esc(p.trip)}</span>`:'';
-  const body=anchors(esc(p.body));
+  const body=anchors(esc(p.body), p.no!=null);
   const img=renderImg(p.img);
   const el=document.createElement('div'); el.className=cls.join(' ');
   el.innerHTML=
@@ -482,7 +487,7 @@ function playPhase(){
   awaitingPost=false; $body.placeholder=DEFAULT_PH; $inter.innerHTML='';
   let i=0;
   const typing=document.createElement('div'); typing.className='typing';
-  typing.innerHTML='……誰かが書き込んでいる……<span class="tap">▼ タップ／スペースで次へ</span>';
+  typing.innerHTML='……誰かが書き込んでいる……';
   const reveal=()=>{
     clearPending(); typing.remove();
     const p=phase.posts[i];
@@ -507,7 +512,7 @@ function openGate(phase){
   if(phase.end){
     if(phase.endNote){
       const e=document.createElement('div'); e.className='endnote';
-      e.textContent=phase.endNote; $inter.appendChild(e);
+      e.textContent=phase.endNote.replace('{TRIP}', OP.trip); $inter.appendChild(e);
     }
     $body.placeholder=DEFAULT_PH; scrollBottom();
     return;
