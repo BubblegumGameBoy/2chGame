@@ -71,8 +71,8 @@
   .endnote{color:#555;font-size:13px;margin:18px 0;border-top:1px solid #c0c0c0;border-bottom:1px solid #c0c0c0;
     padding:14px 6px;background:#eaeaea;}
 
-  #post-form{position:fixed;left:0;right:0;bottom:0;background:#dcdcdc;border-top:2px solid #999;padding:8px 10px;font-size:13px;z-index:20;}
-  #post-form .row{display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap;}
+  #post-form{position:fixed;left:0;right:0;bottom:0;background:#dcdcdc;border-top:2px solid #999;padding:10px 12px 12px;font-size:13px;z-index:20;}
+  #post-form .row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
   #post-form label{color:#333;}
   #post-form input[type=text]{padding:5px;border:1px solid #999;font-size:16px;}
   #post-form #name-in{width:200px;}
@@ -81,7 +81,7 @@
   #post-form textarea::placeholder{color:#b3a98f;font-style:italic;opacity:1;}
   /* 自分の番＝コメント欄を薄い黄色でハイライト（ユーザー投稿と同色） */
   #post-form.awaiting textarea{background:#fffbe2;border-color:#e0c97a;}
-  #post-form .submit{margin-top:6px;padding:9px 26px;font-size:15px;font-weight:bold;font-family:inherit;background:#e7e7e7;border:1px solid #555;border-radius:4px;color:#111;cursor:pointer;}
+  #post-form .submit{margin-top:14px;padding:9px 26px;font-size:15px;font-weight:bold;font-family:inherit;background:#e7e7e7;border:1px solid #555;border-radius:4px;color:#111;cursor:pointer;}
   #post-form .submit:hover{background:#fff;}
   #post-form .hint{font-size:11px;color:#777;}
 
@@ -95,11 +95,11 @@
 
   /* スマホ最適化（狭い画面） */
   @media (max-width:520px){
-    body{font-size:15px;padding-bottom:176px;}
+    body{font-size:15px;padding-bottom:208px;}
     #post-form .hint{display:none;}
     #post-form #name-in{width:44%;}
     #post-form #mail-in{width:30%;}
-    #post-form .submit{width:100%;padding:12px;font-size:16px;}
+    #post-form .submit{width:100%;padding:13px;font-size:16px;margin-top:16px;}
     .scene{width:100%;}
   }
 </style>
