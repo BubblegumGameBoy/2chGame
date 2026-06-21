@@ -10,7 +10,10 @@
 ## 1. ホスティング / ドメイン / HTTPS（※将来の確認用・事前情報）
 
 - ホスト: **GitHub Pages**。リポジトリ `bubblegumgameboy/2chgame`、**`main` ブランチの root** を配信。
-- 独自ドメイン: リポジトリ root の **`CNAME` ファイル**＝`play.bubblegumgameboy.com`。
+- 配信URL: **プロジェクトページ**として `https://play.bubblegumgameboy.com/2chgame/`。
+- 独自ドメインの所有: **ユーザーサイトrepo `bubblegumgameboy.github.io` が `CNAME`（=play.bubblegumgameboy.com）を1個だけ持つ**。各ゲームはその配下のプロジェクトページ。
+  → **このrepoには CNAME ファイルを置かない**（置くとドメイン所有が衝突する）。
+- SEO: `index.html` に `<meta name="robots" content="noindex,follow">`。検索評価はポータル `bubblegumgameboy.com/games/*` に一本化（ゲーム本体URLはnoindex、iframe埋め込み・直アクセスは維持）。canonicalは付けない。
 - DNS（ドメイン管理側のCNAMEレコード）:
   - `play.bubblegumgameboy.com` → `bubblegumgameboy.github.io`
   - `www.bubblegumgameboy.com`  → `bubblegumgameboy.github.io`
@@ -20,7 +23,7 @@
     1. `https://` で開いているか（`http://` や `file://` はNG）
     2. Settings→Pages の Custom domain が `play.bubblegumgameboy.com`／緑チェックか
     3. 「Enforce HTTPS」がオンか（証明書発行直後は数分〜1時間待ち）
-- 構成ファイル: `index.html`（単一）, `CNAME`, `station.png`, `tunnel.png`。
+- 構成ファイル: `index.html`（単一）, `station.png`, `tunnel.png`（**CNAMEは置かない**）。
 
 ## 2. 広告（忍者AdMax）
 
@@ -60,7 +63,7 @@
 ## 5. ブランチ / 公開フロー
 
 - 開発ブランチ: `claude/sleepy-gauss-6b2d3r`
-- 公開: `index.html` を **main の root にコピーして push**（Pagesが配信）。画像/CNAMEもmainに置く。
+- 公開: `index.html` を **main の root にコピーして push**（Pagesが配信）。画像もmainに置く（CNAMEは置かない）。
 
 ## 6. 著作権メモ
 
